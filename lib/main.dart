@@ -90,11 +90,18 @@ class _LoginPageState extends State<LoginPage> {
     try {
       // Tentar abrir a página principal primeiro
       final mainUrl = Uri.parse('https://whitebook.pebmed.com.br/home/');
-      if (await canLaunchUrl(mainUrl)) {
+      bool launched = false;
+      
+      try {
+        launched = await launchUrl(mainUrl, mode: LaunchMode.externalApplication);
+      } catch (e) {
+        print('Erro ao abrir página principal: $e');
+      }
+      
+      if (launched) {
         setState(() {
-          _statusMessage = 'Abrindo página principal...';
+          _statusMessage = 'Página principal aberta!';
         });
-        await launchUrl(mainUrl, mode: LaunchMode.externalApplication);
       } else {
         // Se não conseguir, abrir página de login
         await _openWhitebookInBrowser();
@@ -105,15 +112,51 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Future<void> _openWhitebookInBrowser() async {
-    final url = Uri.parse('https://whitebook.pebmed.com.br/login/');
-    if (await canLaunchUrl(url)) {
+    try {
+      final url = Uri.parse('https://whitebook.pebmed.com.br/login/');
+      
+      // Tentar diferentes modos de abertura
+      bool launched = false;
+      
+      // Método 1: Modo externo
+      try {
+        launched = await launchUrl(url, mode: LaunchMode.externalApplication);
+      } catch (e) {
+        print('Erro no modo externo: $e');
+      }
+      
+      // Método 2: Se falhar, tentar modo in-app
+      if (!launched) {
+        try {
+          launched = await launchUrl(url, mode: LaunchMode.inAppWebView);
+        } catch (e) {
+          print('Erro no modo in-app: $e');
+        }
+      }
+      
+      // Método 3: Se ainda falhar, tentar modo padrão
+      if (!launched) {
+        try {
+          launched = await launchUrl(url);
+        } catch (e) {
+          print('Erro no modo padrão: $e');
+        }
+      }
+      
+      if (launched) {
+        setState(() {
+          _statusMessage = 'Navegador aberto com sucesso!';
+        });
+      } else {
+        setState(() {
+          _statusMessage = 'Não foi possível abrir o navegador. Tente copiar o link manualmente.';
+        });
+        // Copiar URL para área de transferência
+        await Clipboard.setData(ClipboardData(text: url.toString()));
+      }
+    } catch (e) {
       setState(() {
-        _statusMessage = 'Abrindo no navegador...';
-      });
-      await launchUrl(url, mode: LaunchMode.externalApplication);
-    } else {
-      setState(() {
-        _statusMessage = 'Não foi possível abrir o navegador';
+        _statusMessage = 'Erro ao abrir navegador: $e';
       });
     }
   }
@@ -154,6 +197,22 @@ class _LoginPageState extends State<LoginPage> {
     await Clipboard.setData(ClipboardData(text: _passwordController.text));
     setState(() {
       _statusMessage = 'Senha copiada!';
+    });
+    
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) {
+        setState(() {
+          _statusMessage = '';
+        });
+      }
+    });
+  }
+
+  Future<void> _copyWhitebookLink() async {
+    const url = 'https://whitebook.pebmed.com.br/login/';
+    await Clipboard.setData(ClipboardData(text: url));
+    setState(() {
+      _statusMessage = 'Link do Whitebook copiado!';
     });
     
     Future.delayed(const Duration(seconds: 2), () {
@@ -401,6 +460,18 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                         icon: const Icon(Icons.analytics),
                         label: const Text('Analisar Página de Login'),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: _copyWhitebookLink,
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                        ),
+                        icon: const Icon(Icons.link),
+                        label: const Text('Copiar Link do Whitebook'),
                       ),
                     ),
                   ],
