@@ -46,6 +46,21 @@ dependencies:
   
   # Shared preferences for storing credentials
   shared_preferences: ^2.2.2
+  
+  # Path provider for file storage
+  path_provider: ^2.1.1
+  
+  # SQLite for local database
+  sqflite: ^2.3.0
+  
+  # WebView for offline content
+  webview_flutter: ^4.4.2
+  
+  # File picker for importing content
+  file_picker: ^6.1.1
+  
+  # Permission handler
+  permission_handler: ^11.0.1
 
 dev_dependencies:
   flutter_test:

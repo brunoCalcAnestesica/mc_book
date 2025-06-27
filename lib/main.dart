@@ -4,6 +4,7 @@ import 'package:html/parser.dart' as html;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/services.dart';
+import 'screens/offline_screen.dart';
 
 void main() {
   runApp(const WhitebookApp());
@@ -619,6 +620,26 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                         icon: const Icon(Icons.link),
                         label: const Text('Copiar Link do Whitebook'),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const OfflineScreen(),
+                            ),
+                          );
+                        },
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          backgroundColor: Colors.green,
+                        ),
+                        icon: const Icon(Icons.offline_pin, color: Colors.white),
+                        label: const Text('Versão Offline', style: TextStyle(color: Colors.white)),
                       ),
                     ),
                   ],
