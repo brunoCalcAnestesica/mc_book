@@ -224,10 +224,10 @@ class _LoginPageState extends State<LoginPage> {
     });
   }
 
-  Future<void> _extractLoginPageInfo() async {
+  Future<void> _mapWhitebookPage() async {
     setState(() {
       _isLoading = true;
-      _statusMessage = 'Extraindo informações da página de login...';
+      _statusMessage = 'Mapeando estrutura da página...';
     });
 
     try {
@@ -243,45 +243,23 @@ class _LoginPageState extends State<LoginPage> {
       if (response.statusCode == 200) {
         final document = html.parse(response.body);
         
-        // Extrair título da página
-        final title = document.querySelector('title')?.text ?? 'Título não encontrado';
+        // Mapear estrutura da página
+        final pageMap = _createPageMap(document);
         
-        // Extrair meta tags
-        final metaTags = document.querySelectorAll('meta');
-        final metaInfo = metaTags.map((tag) {
-          final name = tag.attributes['name'] ?? tag.attributes['property'] ?? '';
-          final content = tag.attributes['content'] ?? '';
-          return '$name: $content';
-        }).where((info) => info.isNotEmpty).toList();
-
-        // Extrair formulários
-        final forms = document.querySelectorAll('form');
-        final formInfo = forms.map((form) {
-          final action = form.attributes['action'] ?? 'Sem action';
-          final method = form.attributes['method'] ?? 'GET';
-          final inputs = form.querySelectorAll('input');
-          final inputInfo = inputs.map((input) {
-            final type = input.attributes['type'] ?? 'text';
-            final name = input.attributes['name'] ?? 'Sem nome';
-            return '$type: $name';
-          }).toList();
-          return 'Form ($method -> $action): ${inputInfo.join(', ')}';
-        }).toList();
-
         setState(() {
-          _statusMessage = 'Informações extraídas com sucesso!';
+          _statusMessage = 'Mapeamento concluído!';
         });
 
-        // Mostrar detalhes em um dialog
-        _showLoginPageInfo(title, metaInfo, formInfo);
+        // Mostrar mapa em um dialog
+        _showPageMap(pageMap);
       } else {
         setState(() {
-          _statusMessage = 'Erro ao extrair informações: ${response.statusCode}';
+          _statusMessage = 'Erro ao mapear página: ${response.statusCode}';
         });
       }
     } catch (e) {
       setState(() {
-        _statusMessage = 'Erro na extração: $e';
+        _statusMessage = 'Erro no mapeamento: $e';
       });
     } finally {
       setState(() {
@@ -290,30 +268,124 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
-  void _showLoginPageInfo(String title, List<String> metaInfo, List<String> formInfo) {
+  Map<String, dynamic> _createPageMap(html.Document document) {
+    final map = <String, dynamic>{};
+    
+    // Informações básicas
+    map['title'] = document.querySelector('title')?.text ?? 'Sem título';
+    map['language'] = document.querySelector('html')?.attributes['lang'] ?? 'Não especificado';
+    
+    // Meta tags
+    final metaTags = document.querySelectorAll('meta');
+    map['meta_tags'] = metaTags.map((tag) {
+      return {
+        'name': tag.attributes['name'] ?? tag.attributes['property'] ?? 'Sem nome',
+        'content': tag.attributes['content'] ?? 'Sem conteúdo',
+      };
+    }).toList();
+    
+    // Links
+    final links = document.querySelectorAll('a[href]');
+    map['links'] = links.map((link) {
+      return {
+        'text': link.text.trim(),
+        'href': link.attributes['href'] ?? '',
+        'target': link.attributes['target'] ?? '',
+      };
+    }).where((link) => link['text'].isNotEmpty).toList();
+    
+    // Formulários
+    final forms = document.querySelectorAll('form');
+    map['forms'] = forms.map((form) {
+      final inputs = form.querySelectorAll('input');
+      final buttons = form.querySelectorAll('button');
+      
+      return {
+        'action': form.attributes['action'] ?? 'Sem action',
+        'method': form.attributes['method'] ?? 'GET',
+        'inputs': inputs.map((input) {
+          return {
+            'type': input.attributes['type'] ?? 'text',
+            'name': input.attributes['name'] ?? 'Sem nome',
+            'id': input.attributes['id'] ?? 'Sem id',
+            'placeholder': input.attributes['placeholder'] ?? '',
+            'required': input.attributes['required'] != null,
+          };
+        }).toList(),
+        'buttons': buttons.map((button) {
+          return {
+            'text': button.text.trim(),
+            'type': button.attributes['type'] ?? 'button',
+          };
+        }).toList(),
+      };
+    }).toList();
+    
+    // Scripts
+    final scripts = document.querySelectorAll('script');
+    map['scripts'] = scripts.map((script) {
+      return {
+        'src': script.attributes['src'] ?? 'Inline script',
+        'type': script.attributes['type'] ?? 'text/javascript',
+      };
+    }).toList();
+    
+    // Estilos
+    final styles = document.querySelectorAll('link[rel="stylesheet"]');
+    map['stylesheets'] = styles.map((style) {
+      return style.attributes['href'] ?? 'Sem href';
+    }).toList();
+    
+    // Estrutura de seções
+    final sections = document.querySelectorAll('section, div, main, header, footer, nav');
+    map['sections'] = sections.take(20).map((section) {
+      return {
+        'tag': section.localName ?? 'div',
+        'id': section.attributes['id'] ?? 'Sem id',
+        'class': section.attributes['class'] ?? 'Sem classe',
+        'text_preview': section.text.length > 50 
+            ? '${section.text.substring(0, 50)}...' 
+            : section.text,
+      };
+    }).toList();
+    
+    // Imagens
+    final images = document.querySelectorAll('img');
+    map['images'] = images.map((img) {
+      return {
+        'src': img.attributes['src'] ?? 'Sem src',
+        'alt': img.attributes['alt'] ?? 'Sem alt',
+        'title': img.attributes['title'] ?? 'Sem title',
+      };
+    }).toList();
+    
+    return map;
+  }
+
+  void _showPageMap(Map<String, dynamic> pageMap) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Informações da Página de Login'),
-        content: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('Título: $title'),
-              const SizedBox(height: 16),
-              const Text('Meta Tags:', style: TextStyle(fontWeight: FontWeight.bold)),
-              ...metaInfo.map((info) => Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Text(info, style: const TextStyle(fontSize: 12)),
-              )),
-              const SizedBox(height: 16),
-              const Text('Formulários:', style: TextStyle(fontWeight: FontWeight.bold)),
-              ...formInfo.map((form) => Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Text(form, style: const TextStyle(fontSize: 12)),
-              )),
-            ],
+        title: const Text('Mapa da Página do Whitebook'),
+        content: SizedBox(
+          width: double.maxFinite,
+          height: 500,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildMapSection('Título', pageMap['title']),
+                _buildMapSection('Idioma', pageMap['language']),
+                _buildMapSection('Meta Tags', pageMap['meta_tags'], isList: true),
+                _buildMapSection('Links', pageMap['links'], isList: true),
+                _buildMapSection('Formulários', pageMap['forms'], isList: true),
+                _buildMapSection('Scripts', pageMap['scripts'], isList: true),
+                _buildMapSection('CSS', pageMap['stylesheets'], isList: true),
+                _buildMapSection('Seções', pageMap['sections'], isList: true),
+                _buildMapSection('Imagens', pageMap['images'], isList: true),
+              ],
+            ),
           ),
         ),
         actions: [
@@ -324,13 +396,88 @@ class _LoginPageState extends State<LoginPage> {
           TextButton(
             onPressed: () {
               Navigator.of(context).pop();
-              _openWhitebookInBrowser();
+              _copyPageMapToClipboard(pageMap);
             },
-            child: const Text('Abrir no Navegador'),
+            child: const Text('Copiar Mapa'),
           ),
         ],
       ),
     );
+  }
+
+  Widget _buildMapSection(String title, dynamic data, {bool isList = false}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        ),
+        const SizedBox(height: 8),
+        if (isList && data is List)
+          ...data.take(10).map((item) => Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: Text(
+              item.toString(),
+              style: const TextStyle(fontSize: 12),
+            ),
+          ))
+        else
+          Text(
+            data.toString(),
+            style: const TextStyle(fontSize: 12),
+          ),
+        const SizedBox(height: 16),
+      ],
+    );
+  }
+
+  Future<void> _copyPageMapToClipboard(Map<String, dynamic> pageMap) async {
+    final mapText = _formatPageMapForClipboard(pageMap);
+    await Clipboard.setData(ClipboardData(text: mapText));
+    setState(() {
+      _statusMessage = 'Mapa da página copiado!';
+    });
+    
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted) {
+        setState(() {
+          _statusMessage = '';
+        });
+      }
+    });
+  }
+
+  String _formatPageMapForClipboard(Map<String, dynamic> pageMap) {
+    final buffer = StringBuffer();
+    buffer.writeln('=== MAPA DA PÁGINA WHITEBOOK ===');
+    buffer.writeln('Título: ${pageMap['title']}');
+    buffer.writeln('Idioma: ${pageMap['language']}');
+    buffer.writeln();
+    
+    buffer.writeln('=== META TAGS ===');
+    for (final meta in pageMap['meta_tags']) {
+      buffer.writeln('${meta['name']}: ${meta['content']}');
+    }
+    buffer.writeln();
+    
+    buffer.writeln('=== FORMULÁRIOS ===');
+    for (final form in pageMap['forms']) {
+      buffer.writeln('Form (${form['method']} -> ${form['action']})');
+      for (final input in form['inputs']) {
+        buffer.writeln('  - ${input['type']}: ${input['name']} (${input['id']})');
+      }
+    }
+    buffer.writeln();
+    
+    buffer.writeln('=== LINKS IMPORTANTES ===');
+    for (final link in pageMap['links']) {
+      if (link['href'].contains('whitebook') || link['text'].isNotEmpty) {
+        buffer.writeln('${link['text']}: ${link['href']}');
+      }
+    }
+    
+    return buffer.toString();
   }
 
   @override
@@ -454,12 +601,12 @@ class _LoginPageState extends State<LoginPage> {
                     SizedBox(
                       width: double.infinity,
                       child: OutlinedButton.icon(
-                        onPressed: _extractLoginPageInfo,
+                        onPressed: _mapWhitebookPage,
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 16),
                         ),
-                        icon: const Icon(Icons.analytics),
-                        label: const Text('Analisar Página de Login'),
+                        icon: const Icon(Icons.map),
+                        label: const Text('Mapear Página'),
                       ),
                     ),
                     const SizedBox(height: 12),
